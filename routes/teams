@@ -1,0 +1,13 @@
+const router = require('express').Router();
+const database = require('../database')
+const passport = require('passport')
+
+router.post('/:id/squad', passport.authenticate('jwt', {session: false}), async(req,res)=>{
+    const newPlayerResult = await database.addNewPlayer(req.body.name, req.body.role, req.params.id)
+
+    res.json({
+        message:"Player added to the squad successfully",
+        player_id: newPlayerResult.insertId
+    })
+})
+module.exports = router

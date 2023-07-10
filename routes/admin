@@ -1,0 +1,113 @@
+const router = require('express').Router();
+const database = require('../database')
+const passport = require('passport')
+const utils = require('../lib/utils')
+// const nodemailer = require('nodemailer')
+// const LoginClass = require("../login")
+// const Login = new LoginClass(jwt, bcrypt)
+
+// router.get('/protected', passport.authenticate('jwt', {session: false}), (req,res)=>{
+//     res.json({success: true, msg: "You are a verified user"})
+// })
+
+router.post('/signup', async(req,res)=>{
+    console.log(req.body)
+    const existingUserByEmail = await database.getAdminByEmail(req.body.email)
+    if(existingUserByEmail.length>0) res.status(409).json({
+        status:"Email already registered",
+        status_code: 409,
+    })
+    const existingUserByUsername = await database.getAdminByUsername(req.body.username)
+    if(existingUserByUsername.length>0) res.status(409).json({
+        status:"Username taken",
+        status_code: 409,
+    })
+
+    const salt = await utils.createSalt()
+    const hashedPassword = await utils.createPassword(req.body.password, salt)
+    const addNewUserResult = await database.addNewUser(req.body.username, req.body.email, hashedPassword)
+
+    res.status(200).json({
+        status:"Admin account successfully created",
+        status_code: 200,
+        user_id : addNewUserResult.insertId
+    })
+})
+
+router.post('/login', async(req,res)=>{
+    console.log(req.body)
+    const existingUserByUsername = await database.getAdminByUsername(req.body.username)
+    if(existingUserByUsername.length==0) res.status(401).json({
+        status:"Incorrect Username",
+        status_code: 401,
+    })
+    const user = existingUserByUsername[0]
+    const isValid = utils.validPassword(req.body.password, user.password)
+    if(!isValid) res.status(401).json({
+        status:"Incorrect Password",
+        status_code: 401,
+    })
+
+    const jwt_created = utils.issueJWT(user.admin_id)
+
+    res.status(200).json({
+        status:"Login Succesfull",
+        status_code: 200,
+        user_id : user.admin_id,
+        access_token: jwt_created.token
+    })
+})
+// router.post('/register', (req, res, next)=>{
+//     console.log(req.body.inputs)
+//     User.findOne({userName: req.body.inputs.email.value})
+//     .then((user)=>{
+//         if(user){
+//             res.json({success: false, msg: "User already registered"})
+//         }
+//         else{
+//             Login.createSalt()
+//             .then((salt)=>{
+//                 Login.createPassword(req.body.inputs.password.value, salt)
+//                 .then((hashedPassword)=>{
+//                     const newUser = new User({
+//                         name: req.body.inputs.name.value,
+//                         userName: req.body.inputs.email.value,
+//                         password: hashedPassword,
+//                         country: req.body.inputs.country.value
+//                     })
+//                     try{
+//                         newUser.save()
+//                         .then((user)=>{
+//                             Login.sendVerificationMail(user.userName, nodemailer)
+//                             res.json({success:true, msg: "user Saved"})
+//                         })
+//                     }
+//                     catch(err){
+//                         res.json({success: false, msg: err})
+//                     }
+//                 })
+//             })
+//         }
+//     })
+// })
+
+// router.get('/verify/:confirmationCode', (req,res)=>{
+//     console.log("Hello")
+//     const decodedToken = jwt.decode(req.params.confirmationCode, {complete: true})
+//     const userName = decodedToken.payload.sub
+//     User.findOne({userName: userName})
+//     .then((user)=>{
+//         if(!user){
+//             res.json({success: false, msg:"User not found"})
+//         }
+//         user.isVerified = true;
+//         user.save((err)=>{
+//             if(err){
+//                 res.json({success: false, msg: err})
+//             }
+//         })
+//         res.json({success: true})
+//     })
+// })
+
+module.exports = router

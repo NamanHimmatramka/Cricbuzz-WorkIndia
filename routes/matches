@@ -1,0 +1,57 @@
+const router = require('express').Router();
+const database = require('../database')
+const passport = require('passport')
+
+router.post('/', passport.authenticate('jwt', {session: false}), async(req, res)=>{
+    console.log(req.body);
+    const team1 = await database.getTeamByName(req.body.team_1)
+    const team2 = await database.getTeamByName(req.body.team_2)
+    if(team1.length==0){
+        const addNewTeam = await database.addNewTeam(req.body.team_1)
+    }
+    if(team2.length==0){
+        const addNewTeam = await database.addNewTeam(req.body.team_2)
+    }
+    const addNewMatchResult = await database.addNewMatch(req.body.team_1, req.body.team_2, req.body.date, req.body.venue)
+    console.log(addNewMatchResult)
+    res.json({
+        message: "Match created successfully",
+        match_id: addNewMatchResult.insertId
+    })
+})
+
+router.get('/', async(req,res)=>{
+    const matches = await database.getAllMatches()
+    res.json({
+        matches: matches
+    })
+})
+
+router.get('/:id', async(req, res)=>{
+    console.log(req.params.id)
+    const matchCheck = await database.getMatchById(req.params.id)
+    const match = matchCheck[0]
+    console.log(match)
+    const team1Check = await database.getTeamByName(match.team_1)
+    const team2Check = await database.getTeamByName(match.team_2)
+    const team1 = team1Check[0]
+    const team2 = team2Check[0]
+    console.log(team1)
+    console.log(team2)
+    const players_team1 = await database.getPlayerIdAndNameByTeamId(team1.team_id)
+    const players_team2 = await database.getPlayerIdAndNameByTeamId(team2.team_id)
+    console.log(players_team1)
+
+    res.json({
+        match_id: match.match_id,
+        team_1: match.team_1,
+        team_2: match.team_2,
+        date: match.match_date,
+        venue: match.match_venue,
+        squads:{
+            team_1: players_team1,
+            team2: players_team2
+        }
+    })
+})
+module.exports = router
